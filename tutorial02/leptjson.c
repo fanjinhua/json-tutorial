@@ -81,7 +81,7 @@ static int lept_parse_literal(lept_context* c, lept_value* v) {
 static int lept_parse_number(lept_context* c, lept_value* v) {
     char* end;
     /* \TODO validate number */
-	char* j = c->json;
+	const char* j = c->json;
 	if (*j == '-')
 		j++;
 	if (*j == '+' || *j == '.' ||
