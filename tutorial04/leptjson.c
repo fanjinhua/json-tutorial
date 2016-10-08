@@ -90,13 +90,41 @@ static int lept_parse_number(lept_context* c, lept_value* v) {
     return LEPT_PARSE_OK;
 }
 
+
 static const char* lept_parse_hex4(const char* p, unsigned* u) {
-    /* \TODO */
-    return p;
+	int i;
+	*u = 0;
+	for (i = 0; i < 4; i++) {
+		char ch = *p++;
+		*u <<= 4;
+		if (ch >= '0' && ch <= '9')		*u |= ch - '0';
+		else if (ch >= 'A' && ch <= 'F')	*u |= ch - ('A' - 10);
+		else if (ch >= 'a' && ch <= 'f')	*u |= ch - ('a' - 10);
+		else return NULL;
+	}
+	return p;
 }
 
 static void lept_encode_utf8(lept_context* c, unsigned u) {
-    /* \TODO */
+	assert(u <= 0x10FFFF);
+	if (u <= 0x007f) {
+		PUTC(c, (u & 0x7f));
+	}
+	else if (u >= 0x0080 && u <= 0x07ff) {
+		PUTC(c, 0xc0 | ((u >> 6) & 0x1f));
+		PUTC(c, 0x80 | (u & 0x3f));
+	}
+	else if (u >= 0x0800 && u <= 0xFFFF) {
+		PUTC(c, 0xe0 | ((u >> 12) & 0x0f));
+		PUTC(c, 0x80 | ((u >> 6) & 0x3f));
+		PUTC(c, 0x80 | (u & 0x3f));
+	}
+	else if (u >= 0x10000 && u <= 0x10FFFF) {
+		PUTC(c, 0xf0 | ((u >> 18) & 0x07));
+		PUTC(c, 0x80 | ((u >> 12) & 0x3f));
+		PUTC(c, 0x80 | ((u >> 6) & 0x3f));
+		PUTC(c, 0x80 | (u & 0x3f));
+	}
 }
 
 #define STRING_ERROR(ret) do { c->top = head; return ret; } while(0)
@@ -128,7 +156,19 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
                     case 'u':
                         if (!(p = lept_parse_hex4(p, &u)))
                             STRING_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX);
-                        /* \TODO surrogate handling */
+                        /* surrogate handling */
+						if (u >= 0xD800 && u <= 0xDBFF) {
+							unsigned h = u;
+							if (*p == '\\' && *(p + 1) == 'u')
+								p += 2;
+							else
+								STRING_ERROR(LEPT_PARSE_INVALID_UNICODE_SURROGATE);
+							if (!(p = lept_parse_hex4(p, &u)))
+								STRING_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX);
+							if (!(u >= 0xDC00 && u <= 0xDFFF))
+								STRING_ERROR(LEPT_PARSE_INVALID_UNICODE_SURROGATE);
+							u = 0x10000 + (h - 0xD800) * 0x400 + (u - 0xDC00);
+						}
                         lept_encode_utf8(c, u);
                         break;
                     default:
