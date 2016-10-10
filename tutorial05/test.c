@@ -127,14 +127,20 @@ static void test_parse_string() {
     TEST_STRING("\xF0\x9D\x84\x9E", "\"\\ud834\\udd1e\"");  /* G clef sign U+1D11E */
 }
 
-static void test_parse_array() {
-    lept_value v;
+#define TEST_ARRAY(expect, json)\
+	do {\
+		lept_value v;\
+		lept_init(&v);\
+		EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, json));\
+		EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&v));\
+		EXPECT_EQ_SIZE_T(expect, lept_get_array_size(&v));\
+		lept_free(&v);\
+	} while(0)
 
-    lept_init(&v);
-    EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, "[ ]"));
-    EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&v));
-    EXPECT_EQ_SIZE_T(0, lept_get_array_size(&v));
-    lept_free(&v);
+static void test_parse_array() {
+	TEST_ARRAY(0, "[ ]");
+	TEST_ARRAY(5, "[ null , false , true , 123 , \"abc\" ]");
+	TEST_ARRAY(4, "[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]");
 }
 
 #define TEST_ERROR(error, json)\
@@ -167,7 +173,7 @@ static void test_parse_invalid_value() {
     TEST_ERROR(LEPT_PARSE_INVALID_VALUE, "nan");
 
     /* invalid value in array */
-#if 0
+#if 1
     TEST_ERROR(LEPT_PARSE_INVALID_VALUE, "[1,]");
     TEST_ERROR(LEPT_PARSE_INVALID_VALUE, "[\"a\", nul]");
 #endif
@@ -229,7 +235,7 @@ static void test_parse_invalid_unicode_surrogate() {
 }
 
 static void test_parse_miss_comma_or_square_bracket() {
-#if 0
+#if 1
     TEST_ERROR(LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[1");
     TEST_ERROR(LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[1}");
     TEST_ERROR(LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[1 2");
